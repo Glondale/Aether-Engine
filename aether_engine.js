@@ -1,9 +1,11 @@
 /**
- * AETHER-ENGINE v0.3
+ * AETHER-ENGINE v0.3.2
  * Repository: Glondale/Aether-Engine
  */
 
 (function() {
+    console.log("Aether Engine: Link Attempt...");
+
     class AetherEngine {
         constructor() {
             this.SAVE_KEY = 'AETHER_RESONANCE_DATA';
@@ -25,7 +27,6 @@
         }
 
         init() {
-            // 1. Setup HUD Layout
             this.injectStyles();
             this.createUI();
             this.renderStats();
@@ -42,7 +43,7 @@
                     position: fixed; top: 0; right: 0; width: 300px; height: 100%;
                     background: #050505; border-left: 2px solid #00ff41;
                     z-index: 9999; padding: 20px; font-family: 'Courier New', monospace;
-                    color: #00ff41; display: flex; flexDirection: column; box-sizing: border-box;
+                    color: #00ff41; display: flex; flex-direction: column; box-sizing: border-box;
                     transition: border-color 0.5s;
                 }
                 #aether-frame {
@@ -65,6 +66,9 @@
         }
 
         createUI() {
+            // Check if UI already exists to prevent duplication
+            if (document.getElementById('aether-sidebar')) return;
+
             document.documentElement.style.marginRight = '300px';
             
             const frame = document.createElement('div');
@@ -111,9 +115,10 @@
                 STR: ${p.strain}% | APT: ${p.apt}
             </div>`;
 
-            // Visual Strain updates
             const frame = document.getElementById('aether-frame');
             const side = document.getElementById('aether-sidebar');
+            if (!frame || !side) return;
+
             const r = Math.min(255, p.strain * 2.5);
             const g = Math.max(0, 255 - (p.strain * 2.5));
             const color = `rgb(${r}, ${g}, 60)`;
@@ -125,7 +130,9 @@
         }
 
         handleCommand(raw) {
-            const [cmd, arg] = raw.toLowerCase().trim().split(' ');
+            const parts = raw.toLowerCase().trim().split(' ');
+            const cmd = parts[0];
+            const arg = parts[1];
             
             if (cmd === 'scan') {
                 this.log("PULSING DOM STRATA...");
@@ -145,6 +152,7 @@
                 this.state.p.resonance += gain;
                 this.state.p.strain += Math.floor(Math.random() * 5);
                 
+                node.style.transition = 'all 1s';
                 node.style.filter = 'blur(4px) grayscale(100%)';
                 node.style.opacity = '0.2';
                 this.log(`RESONANCE ABSORBED: +${gain}`);
@@ -152,8 +160,11 @@
             }
             else if (cmd === 'exit') {
                 document.documentElement.style.marginRight = '0';
-                document.getElementById('aether-frame').remove();
-                document.getElementById('aether-sidebar').remove();
+                const f = document.getElementById('aether-frame');
+                const s = document.getElementById('aether-sidebar');
+                if (f) f.remove();
+                if (s) s.remove();
+                window.AetherInstance = null; // Reset instance for next launch
             }
             else {
                 this.log("HELP: scan, siphon [n], exit");
@@ -161,8 +172,11 @@
         }
     }
 
-    // Launch
-    if (!window.AetherInstance) {
+    // Launch with a clean check
+    if (document.getElementById('aether-sidebar')) {
+        console.log("Aether Engine: System already active.");
+    } else {
         window.AetherInstance = new AetherEngine();
+        console.log("Aether Engine: Successfully initialized.");
     }
 })();
