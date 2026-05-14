@@ -6,6 +6,51 @@
 (function() {
     console.log("Aether Engine: Link Attempt...");
 
+    function showBootFailure(error) {
+        console.error("Aether Engine: Initialization failed.", error);
+
+        const existing = document.getElementById('aether-failure');
+        if (existing) existing.remove();
+
+        const failure = document.createElement('div');
+        failure.id = 'aether-failure';
+        failure.style.position = 'fixed';
+        failure.style.right = '16px';
+        failure.style.bottom = '16px';
+        failure.style.width = '320px';
+        failure.style.maxWidth = 'calc(100vw - 32px)';
+        failure.style.background = '#050505';
+        failure.style.border = '2px solid #a31212';
+        failure.style.boxShadow = '0 0 24px rgba(163, 18, 18, 0.35)';
+        failure.style.color = '#d7d7d7';
+        failure.style.padding = '14px';
+        failure.style.fontFamily = 'Courier New, monospace';
+        failure.style.fontSize = '12px';
+        failure.style.lineHeight = '1.4';
+        failure.style.zIndex = '2147483647';
+
+        const title = document.createElement('div');
+        title.style.color = '#ff6b6b';
+        title.style.fontWeight = 'bold';
+        title.style.marginBottom = '8px';
+        title.textContent = 'AETHER LINK DEGRADED';
+
+        const body = document.createElement('div');
+        body.textContent = 'Initialization failed on this page. Host restrictions or page structure prevented a clean link.';
+
+        const detail = document.createElement('div');
+        detail.style.marginTop = '8px';
+        detail.style.color = '#9a9a9a';
+        detail.textContent = error && error.message ? `FAULT: ${error.message}` : 'FAULT: Unknown initialization error.';
+
+        failure.appendChild(title);
+        failure.appendChild(body);
+        failure.appendChild(detail);
+
+        const mountPoint = document.body || document.documentElement;
+        if (mountPoint) mountPoint.appendChild(failure);
+    }
+
     class AetherEngine {
         constructor() {
             this.SAVE_KEY = 'AETHER_RESONANCE_DATA';
@@ -69,6 +114,10 @@
             // Check if UI already exists to prevent duplication
             if (document.getElementById('aether-sidebar')) return;
 
+            if (!document.body) {
+                throw new Error('Document body unavailable for HUD mount.');
+            }
+
             document.documentElement.style.marginRight = '300px';
             
             const frame = document.createElement('div');
@@ -109,11 +158,30 @@
 
         renderStats() {
             const { p } = this.state;
-            this.statsEl.innerHTML = `<div style="border-bottom:1px solid #00ff41; padding-bottom:10px; margin-bottom:10px;">
-                <strong>${p.name.toUpperCase()}</strong><br>
-                HP: ${p.integrity}% | RES: ${p.resonance}<br>
-                STR: ${p.strain}% | APT: ${p.apt}
-            </div>`;
+
+            while (this.statsEl.firstChild) {
+                this.statsEl.removeChild(this.statsEl.firstChild);
+            }
+
+            const panel = document.createElement('div');
+            panel.style.borderBottom = '1px solid #00ff41';
+            panel.style.paddingBottom = '10px';
+            panel.style.marginBottom = '10px';
+
+            const name = document.createElement('strong');
+            name.textContent = p.name.toUpperCase();
+
+            const rowOne = document.createElement('div');
+            rowOne.textContent = `HP: ${p.integrity}% | RES: ${p.resonance}`;
+
+            const rowTwo = document.createElement('div');
+            rowTwo.textContent = `STR: ${p.strain}% | APT: ${p.apt}`;
+
+            panel.appendChild(name);
+            panel.appendChild(document.createElement('br'));
+            panel.appendChild(rowOne);
+            panel.appendChild(rowTwo);
+            this.statsEl.appendChild(panel);
 
             const frame = document.getElementById('aether-frame');
             const side = document.getElementById('aether-sidebar');
@@ -176,7 +244,12 @@
     if (document.getElementById('aether-sidebar')) {
         console.log("Aether Engine: System already active.");
     } else {
-        window.AetherInstance = new AetherEngine();
-        console.log("Aether Engine: Successfully initialized.");
+        try {
+            window.AetherInstance = new AetherEngine();
+            console.log("Aether Engine: Successfully initialized.");
+        } catch (error) {
+            window.AetherInstance = null;
+            showBootFailure(error);
+        }
     }
 })();
