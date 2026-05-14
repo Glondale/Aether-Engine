@@ -1,5 +1,5 @@
 /**
- * AETHER-ENGINE v0.3.2
+ * AETHER-ENGINE v0.3.3
  * Repository: Glondale/Aether-Engine
  */
 
@@ -59,23 +59,68 @@
             this.init();
         }
 
-        loadState() {
-            const saved = localStorage.getItem(this.SAVE_KEY);
-            return saved ? JSON.parse(saved) : {
-                p: { name: 'Zell', integrity: 100, maxI: 100, resonance: 0, strain: 0, apt: 1 }
+        getDefaultState() {
+            return {
+                p: { name: 'Zell', integrity: 100, maxI: 100, resonance: 0, strain: 0, apt: 1 },
+                journal: [],
+                meta: { launches: 0, lastHost: '', lastSeenAt: '', status: 'idle' }
             };
         }
 
-        saveState() {
+        normalizeState(saved) {
+            const base = this.getDefaultState();
+            const player = saved && saved.p ? saved.p : {};
+            const journal = saved && Array.isArray(saved.journal) ? saved.journal.slice(-16) : [];
+            const meta = saved && saved.meta ? saved.meta : {};
+
+            return {
+                ...base,
+                ...saved,
+                p: { ...base.p, ...player },
+                journal,
+                meta: { ...base.meta, ...meta }
+            };
+        }
+
+        loadState() {
+            const saved = localStorage.getItem(this.SAVE_KEY);
+
+            if (!saved) {
+                return this.getDefaultState();
+            }
+
+            try {
+                return this.normalizeState(JSON.parse(saved));
+            } catch (error) {
+                console.warn('Aether Engine: Save data degraded, rebuilding state.', error);
+                return this.getDefaultState();
+            }
+        }
+
+        saveState(shouldRender = true) {
             localStorage.setItem(this.SAVE_KEY, JSON.stringify(this.state));
-            this.renderStats();
+            if (shouldRender) this.renderStats();
         }
 
         init() {
             this.injectStyles();
             this.createUI();
             this.renderStats();
-            this.log("AETHER LINK ESTABLISHED.");
+
+            this.restoreJournal();
+
+            this.state.meta.launches += 1;
+            this.state.meta.lastHost = window.location.host;
+            this.state.meta.lastSeenAt = new Date().toISOString();
+            this.state.meta.status = 'active';
+            this.saveState(false);
+
+            if (this.state.meta.launches > 1) {
+                this.log(`AETHER TRACE RESYNCED: ${this.state.meta.lastHost || 'UNKNOWN HOST'}.`, '#7ee787');
+            } else {
+                this.log("AETHER LINK ESTABLISHED.");
+            }
+
             this.log("DECODING SITE DATA...");
         }
 
@@ -148,11 +193,31 @@
         }
 
         log(msg, color = '#00ff41') {
+            const entry = { msg, color };
+            this.state.journal.push(entry);
+            this.state.journal = this.state.journal.slice(-16);
+            this.state.meta.lastSeenAt = new Date().toISOString();
+
             const d = document.createElement('div');
             d.className = 'aether-log';
             d.style.color = color;
-            d.textContent = '> ' + msg;
+            d.textContent = '> ' + entry.msg;
             this.screenEl.appendChild(d);
+            this.screenEl.scrollTop = this.screenEl.scrollHeight;
+            this.saveState(false);
+        }
+
+        restoreJournal() {
+            if (!this.state.journal.length) return;
+
+            this.state.journal.forEach((entry) => {
+                const d = document.createElement('div');
+                d.className = 'aether-log';
+                d.style.color = entry.color || '#00ff41';
+                d.textContent = '> ' + entry.msg;
+                this.screenEl.appendChild(d);
+            });
+
             this.screenEl.scrollTop = this.screenEl.scrollHeight;
         }
 
@@ -227,6 +292,9 @@
                 this.saveState();
             }
             else if (cmd === 'exit') {
+                this.state.meta.status = 'dormant';
+                this.state.meta.lastSeenAt = new Date().toISOString();
+                this.saveState(false);
                 document.documentElement.style.marginRight = '0';
                 const f = document.getElementById('aether-frame');
                 const s = document.getElementById('aether-sidebar');
